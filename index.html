@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chromind — 色彩密碼推理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f7f7f5;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.gw{width:100%;max-width:480px}
+.title{font-size:1.6rem;font-weight:600;color:#111;text-align:center;letter-spacing:.05em}
+.sub{font-size:.72rem;color:#999;text-align:center;letter-spacing:.12em;margin-bottom:1.25rem}
+.diff-bar{display:flex;gap:5px;margin-bottom:.4rem}
+.db{flex:1;padding:8px 4px;font-size:.75rem;border:1.5px solid #ddd;background:#fff;color:#999;cursor:pointer;border-radius:6px;transition:all .15s;font-weight:400}
+.db:hover{background:#f0f0f0;color:#555}
+.diff-desc{font-size:.72rem;color:#aaa;text-align:center;min-height:18px;margin-bottom:.75rem}
+.stats{padding:7px 14px;border:1px solid #e8e8e8;border-radius:6px;margin-bottom:.75rem;font-size:.75rem;color:#999;display:flex;justify-content:space-between;background:#fff}
+.sv{font-weight:600;color:#333}
+.history{display:flex;flex-direction:column;gap:5px;margin-bottom:.75rem}
+.hrow{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid #eee;border-radius:7px}
+.hrn{width:18px;text-align:right;font-size:.65rem;color:#ccc;flex-shrink:0}
+.hpegs{display:flex;gap:5px}
+.hp{width:28px;height:28px;border-radius:50%;flex-shrink:0}
+.hfb{margin-left:auto;font-size:.72rem;color:#aaa;white-space:nowrap;text-align:right;min-width:110px}
+.hfb b{color:#333;font-weight:600}
+.active-area{padding:12px;background:#fff;border:1.5px solid #ddd;border-radius:10px;margin-bottom:.75rem}
+.arow-label{font-size:.7rem;color:#bbb;margin-bottom:7px}
+.arow{display:flex;gap:7px;margin-bottom:10px}
+.peg{width:46px;height:46px;border-radius:50%;border:1.5px solid #ddd;background:#f5f5f5;cursor:pointer;transition:transform .12s;flex-shrink:0}
+.peg:hover{transform:scale(1.08)}
+.peg.filled{border-color:transparent}
+.peg.hinted{outline:2px solid #27ae60;outline-offset:2px}
+.cpanel{display:flex;gap:8px;flex-wrap:wrap}
+.cp{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .12s;flex-shrink:0}
+.cp:hover{transform:scale(1.1)}
+.btnrow{display:flex;gap:7px;margin-bottom:.5rem}
+.btn{flex:1;padding:9px;font-size:.78rem;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer;border-radius:6px;transition:all .15s}
+.btn:hover:not(:disabled){background:#f5f5f5}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn:disabled{opacity:.3;cursor:default}
+.confirm-bar{display:none;align-items:center;justify-content:space-between;padding:9px 14px;background:#fff8e1;border:1px solid #f0c040;border-radius:7px;margin-bottom:.5rem;font-size:.78rem;color:#7a5f00}
+.confirm-bar.show{display:flex}
+.confirm-btns{display:flex;gap:6px;flex-shrink:0;margin-left:12px}
+.cbtn{padding:5px 14px;font-size:.75rem;border-radius:5px;cursor:pointer;border:1px solid;transition:all .12s;font-weight:500}
+.cbtn.yes{background:#333;color:#fff;border-color:#333}
+.cbtn.yes:hover{background:#555}
+.cbtn.no{background:#ddd;color:#333;border-color:#bbb}
+.cbtn.no:hover{background:#ccc}
+.msg{text-align:center;font-size:.8rem;color:#aaa;min-height:28px;padding:4px}
+.msg.w{color:#1a7a4a;font-weight:600}
+.msg.l{color:#c0392b;font-weight:600}
+.ans{display:none;align-items:center;gap:8px;justify-content:center;padding:10px;background:#fff;border:1px solid #eee;border-radius:7px;margin-top:6px}
+.ans.show{display:flex}
+.ans-label{font-size:.72rem;color:#bbb}
+</style>
+</head>
+<body>
+<div class="gw">
+  <div class="title">Chromind</div>
+  <div class="sub">色彩密碼推理</div>
+  <div class="diff-bar" id="dbar"></div>
+  <div class="diff-desc" id="diffDesc"></div>
+  <div class="stats">
+    <span>第 <span class="sv" id="gc">1</span> 次 / 共 <span class="sv" id="gm">15</span> 次</span>
+    <span>提示剩餘 <span class="sv" id="hc">3</span> 次</span>
+  </div>
+  <div class="history" id="history"></div>
+  <div class="active-area" id="activeArea">
+    <div class="arow-label">目前猜測</div>
+    <div class="arow" id="arow"></div>
+    <div class="cpanel" id="cpanel"></div>
+  </div>
+  <div class="btnrow">
+    <button class="btn" id="clrBtn" onclick="clearRow()">清除</button>
+    <button class="btn" id="subBtn" onclick="submitGuess()">確認</button>
+    <button class="btn" id="hintBtn" onclick="useHint()" style="color:#1a7a4a;border-color:#aad5bc">提示 (3)</button>
+    <button class="btn" onclick="askRestart()">重新開始</button>
+  </div>
+  <div class="confirm-bar" id="confirmBar">
+    <span id="confirmText"></span>
+    <div class="confirm-btns">
+      <button class="cbtn yes" onclick="doRestart()">確定</button>
+      <button class="cbtn no" onclick="cancelRestart()">取消</button>
+    </div>
+  </div>
+  <div class="msg" id="msg">選擇顏色後點格子放入</div>
+  <div class="ans" id="ansRow"></div>
+</div>
+ 
+<script>
+const COLORS=['#e74c3c','#e67e22','#f1c40f','#27ae60','#3498db','#9b59b6','#1abc9c','#e84393'];
+const DIFFS=[
+  {n:'簡單',nc:6,rep:false,maxG:15,hints:3,desc:'6 種顏色，每種最多出現一次'},
+  {n:'普通',nc:6,rep:true, maxG:15,hints:3,desc:'6 種顏色，同一顏色可重複出現'},
+  {n:'困難',nc:8,rep:false,maxG:15,hints:2,desc:'8 種顏色，每種最多出現一次'},
+  {n:'專家',nc:8,rep:true, maxG:15,hints:1,desc:'8 種顏色，同一顏色可重複出現'},
+];
+const SLOTS=4;
+let dIdx=0,secret=[],curRow=0,curGuess=[],selC=null,over=false,hintsLeft=3,hintedSlots=[],pendingDiff=-1;
+ 
+function d(){return DIFFS[dIdx];}
+ 
+function buildDbar(){
+  const el=document.getElementById('dbar');el.innerHTML='';
+  DIFFS.forEach((df,i)=>{
+    const b=document.createElement('button');
+    b.className='db';b.textContent=df.n;
+    if(i===dIdx)b.style.cssText='background:#222;color:#fff;border-color:#222;font-weight:600';
+    b.onclick=()=>{
+      if(!over&&curRow>0){pendingDiff=i;showConfirm('確定切換難度？目前進度將清空。');return;}
+      dIdx=i;startGame();
+    };
+    el.appendChild(b);
+  });
+  document.getElementById('diffDesc').textContent=d().desc;
+}
+ 
+function showConfirm(text){
+  document.getElementById('confirmText').textContent=text;
+  document.getElementById('confirmBar').className='confirm-bar show';
+}
+ 
+function doRestart(){
+  document.getElementById('confirmBar').className='confirm-bar';
+  if(pendingDiff>=0){dIdx=pendingDiff;pendingDiff=-1;}
+  startGame();
+}
+ 
+function cancelRestart(){
+  pendingDiff=-1;
+  document.getElementById('confirmBar').className='confirm-bar';
+}
+ 
+function askRestart(){
+  if(!over&&curRow>0){pendingDiff=-1;showConfirm('確定重新開始？目前進度將清空。');return;}
+  startGame();
+}
+ 
+function genSecret(){
+  const pool=[...Array(d().nc).keys()],s=[];
+  for(let i=0;i<SLOTS;i++){
+    if(d().rep){s.push(Math.floor(Math.random()*d().nc));}
+    else{const x=Math.floor(Math.random()*pool.length);s.push(pool.splice(x,1)[0]);}
+  }
+  return s;
+}
+ 
+function buildActiveRow(){
+  const ar=document.getElementById('arow');ar.innerHTML='';
+  for(let s=0;s<SLOTS;s++){
+    const p=document.createElement('div');
+    p.className='peg'+(curGuess[s]!=null?' filled':'');
+    if(curGuess[s]!=null)p.style.background=COLORS[curGuess[s]];
+    if(hintedSlots.includes(s))p.classList.add('hinted');
+    p.onclick=(()=>{const ss=s;return()=>placePeg(ss);})();
+    ar.appendChild(p);
+  }
+}
+ 
+function buildCpanel(){
+  const cp=document.getElementById('cpanel');cp.innerHTML='';
+  for(let i=0;i<d().nc;i++){
+    const p=document.createElement('div');
+    p.className='cp';p.style.background=COLORS[i];
+    if(selC===i)p.style.borderColor='#222';
+    p.onclick=(()=>{const ii=i;return()=>{selC=ii;buildCpanel();};})();
+    cp.appendChild(p);
+  }
+}
+ 
+function addHistoryRow(guess,b,w,rowNum){
+  const hist=document.getElementById('history');
+  const row=document.createElement('div');row.className='hrow';
+  const rn=document.createElement('div');rn.className='hrn';rn.textContent=rowNum;row.appendChild(rn);
+  const pg=document.createElement('div');pg.className='hpegs';
+  guess.forEach(c=>{const p=document.createElement('div');p.className='hp';p.style.background=COLORS[c];pg.appendChild(p);});
+  row.appendChild(pg);
+  const fb=document.createElement('div');fb.className='hfb';
+  fb.innerHTML=`<b>${b}</b> 完全正確　<b>${w}</b> 顏色正確`;
+  row.appendChild(fb);
+  hist.appendChild(row);
+}
+ 
+function placePeg(slot){
+  if(over||selC===null)return;
+  curGuess[slot]=selC;buildActiveRow();
+}
+ 
+function clearRow(){
+  if(over)return;
+  for(let s=0;s<SLOTS;s++)if(!hintedSlots.includes(s))curGuess[s]=null;
+  buildActiveRow();
+}
+ 
+function calcFb(g,a){
+  let b=0,w=0;const gu=Array(SLOTS).fill(false),au=Array(SLOTS).fill(false);
+  for(let i=0;i<SLOTS;i++){if(g[i]===a[i]){b++;gu[i]=au[i]=true;}}
+  for(let i=0;i<SLOTS;i++){if(gu[i])continue;for(let j=0;j<SLOTS;j++){if(au[j]||a[j]!==g[i])continue;w++;au[j]=true;break;}}
+  return{b,w};
+}
+ 
+function submitGuess(){
+  if(over)return;
+  if(curGuess.some(x=>x==null)){setMsg('請填滿所有格子');return;}
+  const g=[...curGuess];
+  const {b,w}=calcFb(g,secret);
+  addHistoryRow(g,b,w,curRow+1);
+  if(b===SLOTS){endGame(true);return;}
+  curRow++;
+  if(curRow>=d().maxG){endGame(false);return;}
+  document.getElementById('gc').textContent=curRow+1;
+  curGuess=Array(SLOTS).fill(null);hintedSlots=[];
+  buildActiveRow();setMsg('');
+}
+ 
+function useHint(){
+  if(over||hintsLeft<=0)return;
+  const empty=[];
+  for(let s=0;s<SLOTS;s++){if(curGuess[s]==null&&!hintedSlots.includes(s))empty.push(s);}
+  if(empty.length===0){setMsg('沒有空格可提示');return;}
+  const slot=empty[Math.floor(Math.random()*empty.length)];
+  hintsLeft--;hintedSlots.push(slot);
+  curGuess[slot]=secret[slot];
+  buildActiveRow();
+  document.getElementById('hc').textContent=hintsLeft;
+  document.getElementById('hintBtn').textContent=`提示 (${hintsLeft})`;
+  if(hintsLeft===0)document.getElementById('hintBtn').disabled=true;
+  setMsg(`第 ${slot+1} 格已揭露`);
+}
+ 
+function endGame(win){
+  over=true;
+  document.getElementById('activeArea').style.display='none';
+  document.getElementById('subBtn').disabled=true;
+  document.getElementById('clrBtn').disabled=true;
+  document.getElementById('hintBtn').disabled=true;
+  if(win)setMsg(`成功！共 ${curRow+1} 次猜中`,'w');
+  else{setMsg('挑戰失敗，答案如下','l');showAns();}
+}
+ 
+function showAns(){
+  const ar=document.getElementById('ansRow');ar.className='ans show';
+  const frags=secret.map(c=>`<div style="width:32px;height:32px;border-radius:50%;background:${COLORS[c]}"></div>`).join('');
+  ar.innerHTML=`<span class="ans-label">答案</span>${frags}`;
+}
+ 
+function setMsg(t,cls=''){const m=document.getElementById('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');}
+ 
+function startGame(){
+  secret=genSecret();
+  curRow=0;curGuess=Array(SLOTS).fill(null);over=false;hintedSlots=[];
+  hintsLeft=d().hints;selC=null;
+  document.getElementById('gc').textContent=1;
+  document.getElementById('gm').textContent=d().maxG;
+  document.getElementById('hc').textContent=hintsLeft;
+  document.getElementById('hintBtn').textContent=`提示 (${hintsLeft})`;
+  document.getElementById('hintBtn').disabled=false;
+  document.getElementById('subBtn').disabled=false;
+  document.getElementById('clrBtn').disabled=false;
+  document.getElementById('activeArea').style.display='';
+  document.getElementById('history').innerHTML='';
+  document.getElementById('ansRow').className='ans';
+  document.getElementById('ansRow').innerHTML='';
+  document.getElementById('confirmBar').className='confirm-bar';
+  setMsg('選擇顏色後點格子放入');
+  buildDbar();buildActiveRow();buildCpanel();
+}
+ 
+startGame();
+</script>
+</body>
+</html>
+ 
